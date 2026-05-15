@@ -1,4 +1,5 @@
 .idea/
 /vendor
 /var
-config.php
+/config.php
+/db.sqlite

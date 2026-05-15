@@ -6,21 +6,26 @@ namespace Infrastructure\Kernel;
 
 use Infrastructure\Config\Config;
 use Infrastructure\Config\Globals;
+use Infrastructure\Http\ExceptionHandler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class Application
 {
     public function run(): void
     {
         $request = Request::createFromGlobals();
-        $config = new Config();
+        $container = (new ContainerFactory())->create();
+        /** @var Config $config */
+        $config = $container->get(Config::class);
 
-        $router = new Router();
+        $router = new Router($container);
         $registerRoutes = require Globals::ROUTE_PATH;
         $registerRoutes($router);
-        $response = $router->dispatch($request)->prepare($request);
+        $response = $this->handle($router, $request)->prepare($request);
 
-        if ($config->get(Globals::DEBUG) === true) {
+        if ($config->get(Globals::DEBUG_NAME) === true) {
             $ms = round((microtime(true) - Globals::$appStartedAt) * 1000, 2);
 
             $response->headers->set(
@@ -30,5 +35,14 @@ class Application
         }
 
         $response->send();
+    }
+
+    private function handle(Router $router, Request $request): Response
+    {
+        try {
+            return $router->dispatch($request);
+        } catch (Throwable $exception) {
+            return (new ExceptionHandler())->handle($exception);
+        }
     }
 }

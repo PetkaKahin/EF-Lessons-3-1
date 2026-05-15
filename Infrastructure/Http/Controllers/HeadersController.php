@@ -13,14 +13,14 @@ class HeadersController
     public function __invoke(Request $request): Response
     {
         $result = [
-            $request->headers->get('user-agent'),
-            $request->headers->get('accept'),
+            'User-Agent' => $request->headers->get('user-agent'),
+            'Accept' => $request->headers->get('accept'),
         ];
 
         $authorization = $request->headers->get('authorization');
 
         if (!empty($authorization)) {
-            $result[] = $authorization;
+            $result['Authorization'] = $authorization;
         }
 
         return new JsonResponse($result, Response::HTTP_OK);

@@ -5,7 +5,8 @@
     "type": "project",
     "require": {
         "php": "^8.4",
-        "symfony/http-foundation": "^8.0"
+        "symfony/http-foundation": "^8.0",
+        "ext-pdo": "*"
     },
     "autoload": {
         "files": [

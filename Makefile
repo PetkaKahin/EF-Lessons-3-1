@@ -1,4 +1,4 @@
-.PHONY: init up down migrate retry-webhooks shell check-config
+.PHONY: init up down shell dump-autoload check-config migrate
 
 init: check-config
 	docker compose build
@@ -17,4 +17,7 @@ dump-autoload:
 	docker compose exec php composer dump-autoload
 
 check-config:
-	@if not exist config.php ( echo config.php не найден. & echo Создай config.php из config.example.php и заполни значения. & exit /b 1 )
+	@if not exist config.php ( echo config.php not found. & echo Create config.php from config.example.php and fill in the values. & exit /b 1 )
+
+migrate: check-config
+	docker compose run --rm php php Infrastructure/Commands/migrate.php

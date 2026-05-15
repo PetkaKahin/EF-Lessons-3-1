@@ -5,12 +5,19 @@ declare(strict_types=1);
 use Infrastructure\Http\Controllers\EchoController;
 use Infrastructure\Http\Controllers\HeadersController;
 use Infrastructure\Http\Controllers\HealthController;
+use Infrastructure\Http\Controllers\TaskController;
 use Infrastructure\Kernel\Router;
 
 return static function (
     Router $router,
 ) {
-    $router->get('/health', new HealthController());
-    $router->get('/headers', new HeadersController());
-    $router->post('/echo', new EchoController());
+    $router->get('/health', [HealthController::class, '__invoke']);
+    $router->get('/headers', [HeadersController::class, '__invoke']);
+    $router->post('/echo', [EchoController::class, '__invoke']);
+
+    $router->get('/tasks', [TaskController::class, 'index']);
+    $router->get('/tasks/{id}', [TaskController::class, 'show']);
+    $router->post('/tasks', [TaskController::class, 'create']);
+    $router->patch('/tasks/{id}', [TaskController::class, 'update']);
+    $router->delete('/tasks/{id}', [TaskController::class, 'delete']);
 };

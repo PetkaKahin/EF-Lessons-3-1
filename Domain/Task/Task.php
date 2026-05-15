@@ -61,6 +61,20 @@ final class Task
         $this->status = $status;
     }
 
+    /**
+     * @return array{id: string, title: string, description: string|null, status: string, createdAt: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id->value,
+            'title' => $this->title,
+            'description' => $this->description,
+            'status' => $this->status->value,
+            'createdAt' => $this->createdAt->format(DateTimeImmutable::ATOM),
+        ];
+    }
+
     private static function validateTitle(string $title): void
     {
         if (trim($title) === '') {
