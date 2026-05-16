@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infrastructure\Http\Controllers;
 
+use Application\DTO\IdempotencyData;
 use Application\UseCases\Task\CreateTaskUseCase;
 use Application\UseCases\Task\DeleteTaskUseCase;
 use Application\UseCases\Task\GetTaskUseCase;
@@ -28,8 +29,14 @@ class TaskController
     public function create(Request $request): Response
     {
         $data = $request->toArray();
+        $idempotency = new IdempotencyData(
+            key: $request->headers->get('Idempotency-Key'),
+            operation: $request->getMethod() . ' ' . $request->getPathInfo(),
+        );
+
         $task = $this->createTask->execute(
             title: $data['title'] ?? '',
+            data: $idempotency,
             description: $data['description'] ?? null,
             status: $data['status'] ?? null,
         );

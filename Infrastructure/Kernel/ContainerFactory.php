@@ -12,6 +12,7 @@ use Application\UseCases\Task\UpdateTaskUseCase;
 use Infrastructure\Config\Config;
 use Infrastructure\Config\Globals;
 use Infrastructure\DataBase\MigrationRunner;
+use Infrastructure\DataBase\Repositories\IdempotencyRepository;
 use Infrastructure\DataBase\Repositories\TaskRepository;
 use Infrastructure\Http\Controllers\EchoController;
 use Infrastructure\Http\Controllers\HeadersController;
@@ -49,12 +50,17 @@ final class ContainerFactory
             $container->get(PDO::class),
         ));
 
+        $container->set(IdempotencyRepository::class, static fn (Container $container): IdempotencyRepository => new IdempotencyRepository(
+            $container->get(PDO::class),
+        ));
+
         $container->set(MigrationRunner::class, static fn (Container $container): MigrationRunner => new MigrationRunner(
             $container->get(PDO::class),
         ));
 
         $container->set(CreateTaskUseCase::class, static fn (Container $container): CreateTaskUseCase => new CreateTaskUseCase(
             $container->get(TaskRepository::class),
+            $container->get(IdempotencyRepository::class),
         ));
 
         $container->set(ListTasksUseCase::class, static fn (Container $container): ListTasksUseCase => new ListTasksUseCase(

@@ -3,6 +3,7 @@
 init: check-config
 	docker compose build
 	docker compose run --rm php composer install
+	$(migrate)
 
 up:
 	docker compose up -d

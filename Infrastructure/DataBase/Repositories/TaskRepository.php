@@ -111,7 +111,7 @@ class TaskRepository implements RepositoryInterface
             'INSERT INTO tasks (id, title, description, status, createdAt) VALUES (:id, :title, :description, :status, :createdAt)'
         );
 
-        $statement->execute($this->toArray($task));
+        $statement->execute($task->toArray());
 
         return $task;
     }
@@ -143,7 +143,7 @@ class TaskRepository implements RepositoryInterface
             'UPDATE tasks SET title = :title, description = :description, status = :status, createdAt = :createdAt WHERE id = :id'
         );
 
-        $statement->execute($this->toArray($task));
+        $statement->execute($task->toArray());
 
         return $task;
     }
@@ -172,20 +172,6 @@ class TaskRepository implements RepositoryInterface
             description: $row['description'] !== null ? (string) $row['description'] : null,
             status: TaskStatus::from((string) $row['status']),
         );
-    }
-
-    /**
-     * @return array{id: string, title: string, description: string|null, status: string, createdAt: string}
-     */
-    private function toArray(Task $task): array
-    {
-        return [
-            'id' => $task->id->value,
-            'title' => $task->title,
-            'description' => $task->description,
-            'status' => $task->status->value,
-            'createdAt' => $task->createdAt->format(DateTimeImmutable::ATOM),
-        ];
     }
 
     private function assertTask(object $item): Task
