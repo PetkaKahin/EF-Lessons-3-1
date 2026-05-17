@@ -18,6 +18,7 @@ use Infrastructure\Http\Controllers\EchoController;
 use Infrastructure\Http\Controllers\HeadersController;
 use Infrastructure\Http\Controllers\HealthController;
 use Infrastructure\Http\Controllers\TaskController;
+use Infrastructure\Http\Middleware\AuthMiddleware;
 use PDO;
 
 final class ContainerFactory
@@ -30,6 +31,9 @@ final class ContainerFactory
         $container->set(EchoController::class, static fn (): EchoController => new EchoController());
         $container->set(HeadersController::class, static fn (): HeadersController => new HeadersController());
         $container->set(HealthController::class, static fn (): HealthController => new HealthController());
+        $container->set(AuthMiddleware::class, static fn (Container $container): AuthMiddleware => new AuthMiddleware(
+            $container->get(Config::class),
+        ));
 
         $container->set(PDO::class, static function (Container $container): PDO {
             /** @var Config $config */

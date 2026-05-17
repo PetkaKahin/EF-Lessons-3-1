@@ -11,6 +11,7 @@ abstract class HttpException extends RuntimeException
     public function __construct(
         string $message,
         private readonly int $statusCode,
+        private readonly array $headers = [],
     ) {
         parent::__construct($message);
     }
@@ -18,5 +19,13 @@ abstract class HttpException extends RuntimeException
     public function statusCode(): int
     {
         return $this->statusCode;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function headers(): array
+    {
+        return $this->headers;
     }
 }

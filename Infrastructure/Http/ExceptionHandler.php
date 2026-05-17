@@ -27,10 +27,12 @@ final class ExceptionHandler
             $exception instanceof ValueError => Response::HTTP_UNPROCESSABLE_ENTITY,
             default => Response::HTTP_INTERNAL_SERVER_ERROR,
         };
+        $headers = $exception instanceof HttpException ? $exception->headers() : [];
 
         return new JsonResponse(
             ['error' => $status === Response::HTTP_INTERNAL_SERVER_ERROR ? 'Internal server error' : $exception->getMessage()],
             $status,
+            $headers,
         );
     }
 }

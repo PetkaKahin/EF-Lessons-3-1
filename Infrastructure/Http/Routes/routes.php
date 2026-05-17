@@ -6,6 +6,7 @@ use Infrastructure\Http\Controllers\EchoController;
 use Infrastructure\Http\Controllers\HeadersController;
 use Infrastructure\Http\Controllers\HealthController;
 use Infrastructure\Http\Controllers\TaskController;
+use Infrastructure\Http\Middleware\AuthMiddleware;
 use Infrastructure\Kernel\Router;
 
 return static function (
@@ -17,7 +18,7 @@ return static function (
 
     $router->get('/tasks', [TaskController::class, 'index']);
     $router->get('/tasks/{id}', [TaskController::class, 'show']);
-    $router->post('/tasks', [TaskController::class, 'create']);
-    $router->patch('/tasks/{id}', [TaskController::class, 'update']);
-    $router->delete('/tasks/{id}', [TaskController::class, 'delete']);
+    $router->post('/tasks', [TaskController::class, 'create'], [AuthMiddleware::class]);
+    $router->patch('/tasks/{id}', [TaskController::class, 'update'], [AuthMiddleware::class]);
+    $router->delete('/tasks/{id}', [TaskController::class, 'delete'], [AuthMiddleware::class]);
 };

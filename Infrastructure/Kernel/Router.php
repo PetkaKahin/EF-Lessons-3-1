@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infrastructure\Kernel;
 
+use Infrastructure\Http\Middleware\Contracts\MiddlewareInterface;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,61 +22,97 @@ class Router
     }
 
     /**
-     * @param callable(Request): Response|array{class-string, string} $handler
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
      */
-    public function get(string $path, mixed $handler): void
+    public function get(string $path, array $handler, array $middlewares = []): void
     {
-        $this->addRoute(Request::METHOD_GET, $path, $handler);
+        $this->addRoute(Request::METHOD_GET, $path, $handler, $middlewares);
     }
 
     /**
-     * @param callable(Request): Response|array{class-string, string} $handler
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
      */
-    public function post(string $path, mixed $handler): void
+    public function post(string $path, array $handler, array $middlewares = []): void
     {
-        $this->addRoute(Request::METHOD_POST, $path, $handler);
+        $this->addRoute(Request::METHOD_POST, $path, $handler, $middlewares);
     }
 
     /**
-     * @param callable(Request): Response|array{class-string, string} $handler
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
      */
-    public function patch(string $path, mixed $handler): void
+    public function patch(string $path, array $handler, array $middlewares = []): void
     {
-        $this->addRoute(Request::METHOD_PATCH, $path, $handler);
+        $this->addRoute(Request::METHOD_PATCH, $path, $handler, $middlewares);
     }
 
     /**
-     * @param callable(Request): Response|array{class-string, string} $handler
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
      */
-    public function delete(string $path, mixed $handler): void
+    public function delete(string $path, array $handler, array $middlewares = []): void
     {
-        $this->addRoute(Request::METHOD_DELETE, $path, $handler);
+        $this->addRoute(Request::METHOD_DELETE, $path, $handler, $middlewares);
     }
 
     public function dispatch(Request $request): Response
     {
         foreach ($this->routes as $route) {
             if ($route->matches($request)) {
-                return $this->call($route->handler, $request);
+                return $this->call($route->handler, $route->middlewares, $request);
             }
         }
 
         return new Response('Not found.', Response::HTTP_NOT_FOUND);
     }
 
-    private function addRoute(string $method, string $path, mixed $handler): void
+    /**
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
+     */
+    private function addRoute(string $method, string $path, array $handler, array $middlewares): void
     {
-        $this->routes[] = new Route($method, $path, $handler);
+        $this->routes[] = new Route($method, $path, $handler, $middlewares);
     }
 
-    private function call(mixed $handler, Request $request): Response
+    /**
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
+     */
+    private function call(array $handler, array $middlewares, Request $request): Response
     {
-        if (is_array($handler)) {
-            $controller = $this->container->get($handler[0]);
+        $next = fn (Request $request): Response => $this->callHandler($handler, $request);
 
-            return $controller->{$handler[1]}($request);
+        foreach (array_reverse($middlewares) as $middleware) {
+            $next = function (Request $request) use ($middleware, $next): Response {
+                return $this->resolveMiddleware($middleware)->handle($request, $next);
+            };
         }
 
-        return $handler($request);
+        return $next($request);
+    }
+
+    /**
+     * @param array{class-string, string} $handler
+     */
+    private function callHandler(array $handler, Request $request): Response
+    {
+        return $this->container->get($handler[0])->{$handler[1]}($request);
+    }
+
+    /**
+     * @param class-string<MiddlewareInterface> $middleware
+     */
+    private function resolveMiddleware(string $middleware): MiddlewareInterface
+    {
+        $instance = $this->container->get($middleware);
+
+        if (!$instance instanceof MiddlewareInterface) {
+            throw new RuntimeException(sprintf('Middleware "%s" must implement MiddlewareInterface.', $middleware));
+        }
+
+        return $instance;
     }
 }

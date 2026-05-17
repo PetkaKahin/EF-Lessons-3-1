@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace Infrastructure\Kernel;
 
+use Infrastructure\Http\Middleware\Contracts\MiddlewareInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 final readonly class Route
 {
+    /**
+     * @param array{class-string, string} $handler
+     * @param list<class-string<MiddlewareInterface>> $middlewares
+     */
     public function __construct(
         private string $method,
         private string $path,
-        public mixed $handler,
+        public array $handler,
+        public array $middlewares = [],
     ) {
     }
 
