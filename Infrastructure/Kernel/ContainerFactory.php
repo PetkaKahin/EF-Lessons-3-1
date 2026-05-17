@@ -19,6 +19,9 @@ use Infrastructure\Http\Controllers\HeadersController;
 use Infrastructure\Http\Controllers\HealthController;
 use Infrastructure\Http\Controllers\TaskController;
 use Infrastructure\Http\Middleware\AuthMiddleware;
+use Infrastructure\Http\Middleware\CorsMiddleware;
+use Infrastructure\Http\Middleware\GlobalMiddlewareRegistry;
+use Infrastructure\Http\Middleware\MiddlewarePipeline;
 use PDO;
 
 final class ContainerFactory
@@ -31,6 +34,18 @@ final class ContainerFactory
         $container->set(EchoController::class, static fn (): EchoController => new EchoController());
         $container->set(HeadersController::class, static fn (): HeadersController => new HeadersController());
         $container->set(HealthController::class, static fn (): HealthController => new HealthController());
+        $container->set(GlobalMiddlewareRegistry::class, static fn (): GlobalMiddlewareRegistry => new GlobalMiddlewareRegistry());
+        $container->set(MiddlewarePipeline::class, static fn (Container $container): MiddlewarePipeline => new MiddlewarePipeline(
+            $container,
+            $container->get(GlobalMiddlewareRegistry::class),
+        ));
+        $container->set(Router::class, static fn (Container $container): Router => new Router(
+            $container,
+            $container->get(MiddlewarePipeline::class),
+        ));
+        $container->set(CorsMiddleware::class, static fn (Container $container): CorsMiddleware => new CorsMiddleware(
+            $container->get(Config::class),
+        ));
         $container->set(AuthMiddleware::class, static fn (Container $container): AuthMiddleware => new AuthMiddleware(
             $container->get(Config::class),
         ));

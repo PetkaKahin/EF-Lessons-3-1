@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infrastructure\Kernel;
 
 use Infrastructure\Http\Middleware\Contracts\MiddlewareInterface;
-use RuntimeException;
+use Infrastructure\Http\Middleware\MiddlewarePipeline;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,6 +18,7 @@ class Router
 
     public function __construct(
         private readonly Container $container,
+        private readonly MiddlewarePipeline $middlewarePipeline,
     ) {
     }
 
@@ -83,15 +84,11 @@ class Router
      */
     private function call(array $handler, array $middlewares, Request $request): Response
     {
-        $next = fn (Request $request): Response => $this->callHandler($handler, $request);
-
-        foreach (array_reverse($middlewares) as $middleware) {
-            $next = function (Request $request) use ($middleware, $next): Response {
-                return $this->resolveMiddleware($middleware)->handle($request, $next);
-            };
-        }
-
-        return $next($request);
+        return $this->middlewarePipeline->handleStack(
+            $request,
+            $middlewares,
+            fn (Request $request): Response => $this->callHandler($handler, $request),
+        );
     }
 
     /**
@@ -100,19 +97,5 @@ class Router
     private function callHandler(array $handler, Request $request): Response
     {
         return $this->container->get($handler[0])->{$handler[1]}($request);
-    }
-
-    /**
-     * @param class-string<MiddlewareInterface> $middleware
-     */
-    private function resolveMiddleware(string $middleware): MiddlewareInterface
-    {
-        $instance = $this->container->get($middleware);
-
-        if (!$instance instanceof MiddlewareInterface) {
-            throw new RuntimeException(sprintf('Middleware "%s" must implement MiddlewareInterface.', $middleware));
-        }
-
-        return $instance;
     }
 }

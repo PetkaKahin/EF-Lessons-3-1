@@ -7,6 +7,7 @@ namespace Infrastructure\Kernel;
 use Infrastructure\Config\Config;
 use Infrastructure\Config\Globals;
 use Infrastructure\Http\ExceptionHandler;
+use Infrastructure\Http\Middleware\MiddlewarePipeline;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -20,10 +21,14 @@ class Application
         /** @var Config $config */
         $config = $container->get(Config::class);
 
-        $router = new Router($container);
+        $middlewarePipeline = $container->get(MiddlewarePipeline::class);
+        $router = $container->get(Router::class);
         $registerRoutes = require Globals::ROUTE_PATH;
         $registerRoutes($router);
-        $response = $this->handle($router, $request)->prepare($request);
+        $response = $middlewarePipeline->handle(
+            $request,
+            fn (Request $request): Response => $this->handle($router, $request),
+        )->prepare($request);
 
         if ($config->get(Globals::DEBUG_NAME) === true) {
             $ms = round((microtime(true) - Globals::$appStartedAt) * 1000, 2);
