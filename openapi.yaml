@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: API EF Lessons-3-1
+  version: 1.0.0
+
+paths:
+  /tasks:
+    get:
+      summary: Получить список задач
+      parameters:
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          description: Список задач
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  nextCursor:
+                    type: string
+                    nullable: true
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Создать задачу
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                status:
+                  type: string
+                  enum: [new, in_progress, done]
+      responses:
+        '201':
+          description: Задача создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /tasks/{id}:
+    get:
+      summary: Получить задачу
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Задача
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Обновить задачу
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                status:
+                  type: string
+                  enum: [new, in_progress, done]
+      responses:
+        '200':
+          description: Задача обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Удалить задачу
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Задача удалена
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    status:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [new, in_progress, done]
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 100
+    cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        nullable: true
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: Ошибка
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [new, in_progress, done]
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
