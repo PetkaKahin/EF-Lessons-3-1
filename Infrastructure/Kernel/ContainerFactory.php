@@ -9,15 +9,20 @@ use Application\UseCases\Task\DeleteTaskUseCase;
 use Application\UseCases\Task\GetTaskUseCase;
 use Application\UseCases\Task\ListTasksUseCase;
 use Application\UseCases\Task\UpdateTaskUseCase;
+use Application\UseCases\Webhook\RetryWebhookAttemptsUseCase;
+use Application\UseCases\Webhook\SendTaskDoneWebhookUseCase;
 use Infrastructure\Config\Config;
 use Infrastructure\Config\Globals;
 use Infrastructure\DataBase\MigrationRunner;
 use Infrastructure\DataBase\Repositories\IdempotencyRepository;
 use Infrastructure\DataBase\Repositories\TaskRepository;
+use Infrastructure\DataBase\Repositories\WebhookAttemptRepository;
+use Infrastructure\Http\Client\WebhookClient;
 use Infrastructure\Http\Controllers\EchoController;
 use Infrastructure\Http\Controllers\HeadersController;
 use Infrastructure\Http\Controllers\HealthController;
 use Infrastructure\Http\Controllers\TaskController;
+use Infrastructure\Http\Controllers\WebhookReceiverController;
 use Infrastructure\Http\Middleware\AuthMiddleware;
 use Infrastructure\Http\Middleware\CorsMiddleware;
 use Infrastructure\Http\Middleware\GlobalMiddlewareRegistry;
@@ -34,6 +39,7 @@ final class ContainerFactory
         $container->set(EchoController::class, static fn (): EchoController => new EchoController());
         $container->set(HeadersController::class, static fn (): HeadersController => new HeadersController());
         $container->set(HealthController::class, static fn (): HealthController => new HealthController());
+        $container->set(WebhookReceiverController::class, static fn (): WebhookReceiverController => new WebhookReceiverController());
         $container->set(GlobalMiddlewareRegistry::class, static fn (): GlobalMiddlewareRegistry => new GlobalMiddlewareRegistry());
         $container->set(MiddlewarePipeline::class, static fn (Container $container): MiddlewarePipeline => new MiddlewarePipeline(
             $container,
@@ -73,6 +79,12 @@ final class ContainerFactory
             $container->get(PDO::class),
         ));
 
+        $container->set(WebhookAttemptRepository::class, static fn (Container $container): WebhookAttemptRepository => new WebhookAttemptRepository(
+            $container->get(PDO::class),
+        ));
+
+        $container->set(WebhookClient::class, static fn (): WebhookClient => new WebhookClient());
+
         $container->set(MigrationRunner::class, static fn (Container $container): MigrationRunner => new MigrationRunner(
             $container->get(PDO::class),
         ));
@@ -90,8 +102,21 @@ final class ContainerFactory
             $container->get(TaskRepository::class),
         ));
 
+        $container->set(SendTaskDoneWebhookUseCase::class, static fn (Container $container): SendTaskDoneWebhookUseCase => new SendTaskDoneWebhookUseCase(
+            $container->get(WebhookClient::class),
+            $container->get(WebhookAttemptRepository::class),
+            (string) $container->get(Config::class)->get(Globals::WEBHOOK_URL_NAME),
+        ));
+
+        $container->set(RetryWebhookAttemptsUseCase::class, static fn (Container $container): RetryWebhookAttemptsUseCase => new RetryWebhookAttemptsUseCase(
+            $container->get(WebhookClient::class),
+            $container->get(WebhookAttemptRepository::class),
+            (string) $container->get(Config::class)->get(Globals::WEBHOOK_URL_NAME),
+        ));
+
         $container->set(UpdateTaskUseCase::class, static fn (Container $container): UpdateTaskUseCase => new UpdateTaskUseCase(
             $container->get(TaskRepository::class),
+            $container->get(SendTaskDoneWebhookUseCase::class),
         ));
 
         $container->set(DeleteTaskUseCase::class, static fn (Container $container): DeleteTaskUseCase => new DeleteTaskUseCase(

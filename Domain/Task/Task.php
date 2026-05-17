@@ -50,7 +50,7 @@ final class Task
 
     public function changeStatus(TaskStatus $status): void
     {
-        if ($this->status->rank() < $status->rank()) {
+        if ($this->status->rank() > $status->rank()) {
             throw new DomainException(sprintf(
                 'The task cannot be changed %s->%s',
                 $this->status->name,

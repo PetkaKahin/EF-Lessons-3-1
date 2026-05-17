@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Application\UseCases\Task;
 
 use Application\Contracts\RepositoryInterface;
+use Application\UseCases\Webhook\SendTaskDoneWebhookUseCase;
 use Domain\Task\Task;
 use Domain\Task\TaskStatus;
 
@@ -15,6 +16,7 @@ final readonly class UpdateTaskUseCase
      */
     public function __construct(
         private RepositoryInterface $tasks,
+        private SendTaskDoneWebhookUseCase $sendTaskDoneWebhook,
     ) {
     }
 
@@ -24,6 +26,7 @@ final readonly class UpdateTaskUseCase
     ): Task {
         /** @var Task $task */
         $task = $this->tasks->find($id);
+        $oldStatus = $task->status;
 
         if (array_key_exists('title', $data)) {
             $task->rename($data['title']);
@@ -37,7 +40,13 @@ final readonly class UpdateTaskUseCase
             $task->changeStatus(TaskStatus::from($data['status']));
         }
 
-        /** @var Task */
-        return $this->tasks->patch($task);
+        /** @var Task $task */
+        $task = $this->tasks->patch($task);
+
+        if ($oldStatus !== TaskStatus::Done && $task->status === TaskStatus::Done) {
+            $this->sendTaskDoneWebhook->execute($task);
+        }
+
+        return $task;
     }
 }

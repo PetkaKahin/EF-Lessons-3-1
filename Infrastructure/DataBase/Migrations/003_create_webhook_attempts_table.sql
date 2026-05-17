@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS webhook_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload_json TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
+);
