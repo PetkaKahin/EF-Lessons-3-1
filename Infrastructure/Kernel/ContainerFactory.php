@@ -14,6 +14,7 @@ use Application\UseCases\Webhook\SendTaskDoneWebhookUseCase;
 use Infrastructure\Config\Config;
 use Infrastructure\Config\Globals;
 use Infrastructure\DataBase\MigrationRunner;
+use Infrastructure\DataBase\PdoTransactionManager;
 use Infrastructure\DataBase\Repositories\IdempotencyRepository;
 use Infrastructure\DataBase\Repositories\TaskRepository;
 use Infrastructure\DataBase\Repositories\WebhookAttemptRepository;
@@ -79,6 +80,10 @@ final class ContainerFactory
             $container->get(PDO::class),
         ));
 
+        $container->set(PdoTransactionManager::class, static fn (Container $container): PdoTransactionManager => new PdoTransactionManager(
+            $container->get(PDO::class),
+        ));
+
         $container->set(WebhookAttemptRepository::class, static fn (Container $container): WebhookAttemptRepository => new WebhookAttemptRepository(
             $container->get(PDO::class),
         ));
@@ -92,6 +97,7 @@ final class ContainerFactory
         $container->set(CreateTaskUseCase::class, static fn (Container $container): CreateTaskUseCase => new CreateTaskUseCase(
             $container->get(TaskRepository::class),
             $container->get(IdempotencyRepository::class),
+            $container->get(PdoTransactionManager::class),
         ));
 
         $container->set(ListTasksUseCase::class, static fn (Container $container): ListTasksUseCase => new ListTasksUseCase(

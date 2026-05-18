@@ -6,13 +6,16 @@ namespace Application\UseCases\Task;
 
 use Application\Contracts\IdempotencyRepositoryInterface;
 use Application\Contracts\RepositoryInterface;
+use Application\Contracts\TransactionManagerInterface;
 use Application\DTO\Idempotency;
 use Application\DTO\IdempotencyData;
 use Application\Exceptions\ConflictException;
+use Application\Exceptions\IdempotencyKeyAlreadyExistsException;
 use DateTimeImmutable;
 use Domain\Task\Task;
 use Domain\Task\TaskStatus;
 use Domain\Task\TaskUuid;
+use RuntimeException;
 
 final readonly class CreateTaskUseCase
 {
@@ -22,24 +25,65 @@ final readonly class CreateTaskUseCase
     public function __construct(
         private RepositoryInterface $tasks,
         private IdempotencyRepositoryInterface $idempotency,
+        private TransactionManagerInterface $transactionManager,
     ) {
     }
 
     public function execute(
         string $title,
-        IdempotencyData $data,
+        IdempotencyData $idempotencyData,
         ?string $description = null,
         ?string $status = null,
+        array $requestBody = [],
     ): Task
     {
-        $requestHash = $this->makeRequestHash($title, $description, $status);
+        $requestHash = $this->makeRequestBodyHash($requestBody ?: [
+            'title' => $title,
+            'description' => $description,
+            'status' => $status ?? TaskStatus::New->value,
+        ]);
 
-        $alreadyCreatedTask = $this->findTaskCreatedBySameIdempotencyRequest($data, $requestHash);
+        if ($idempotencyData->key === null) {
+            return $this->createTask($title, $description, $status);
+        }
+
+        try {
+            return $this->transactionManager->transactional(
+                fn (): Task => $this->createOrReturnExistingTask(
+                    $idempotencyData,
+                    $requestHash,
+                    $title,
+                    $description,
+                    $status,
+                ),
+            );
+        } catch (IdempotencyKeyAlreadyExistsException) {
+            return $this->findTaskCreatedBySameIdempotencyRequest($idempotencyData, $requestHash)
+                ?? throw new RuntimeException('Failed to load idempotency result.');
+        }
+    }
+
+    private function createOrReturnExistingTask(
+        IdempotencyData $idempotencyData,
+        string $requestHash,
+        string $title,
+        ?string $description,
+        ?string $status,
+    ): Task {
+        $alreadyCreatedTask = $this->findTaskCreatedBySameIdempotencyRequest($idempotencyData, $requestHash);
 
         if ($alreadyCreatedTask !== null) {
             return $alreadyCreatedTask;
         }
 
+        $task = $this->createTask($title, $description, $status);
+        $this->saveIdempotencyResult($idempotencyData, $task, $requestHash);
+
+        return $task;
+    }
+
+    private function createTask(string $title, ?string $description, ?string $status): Task
+    {
         $task = Task::create(
             id: TaskUuid::fromData(TaskUuid::generateUuid()),
             title: $title,
@@ -50,8 +94,6 @@ final readonly class CreateTaskUseCase
 
         /** @var Task $task */
         $task = $this->tasks->save($task);
-
-        $this->saveIdempotencyResult($data, $task, $requestHash);
 
         return $task;
     }
@@ -89,14 +131,38 @@ final readonly class CreateTaskUseCase
         ));
     }
 
-    private function makeRequestHash(string $title, ?string $description, ?string $status): string
+    /**
+     * @param array<mixed> $requestBody
+     */
+    private function makeRequestBodyHash(array $requestBody): string
     {
-        $payload = [
-            'title' => $title,
-            'description' => $description,
-            'status' => $status ?? TaskStatus::New->value,
-        ];
+        $requestBodyWithStableKeyOrder = $this->sortObjectKeysRecursively($requestBody);
+        $json = json_encode($requestBodyWithStableKeyOrder, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        return hash('sha256', (string) json_encode($payload));
+        if ($json === false) {
+            throw new RuntimeException('Failed to encode request body for idempotency hash.');
+        }
+
+        return hash('sha256', $json);
+    }
+
+    private function sortObjectKeysRecursively(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->sortObjectKeysRecursively($item), $value);
+        }
+
+        // Сортируем, чтобы порядок полей в JSON не влиял на хэш
+        ksort($value);
+
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->sortObjectKeysRecursively($item);
+        }
+
+        return $value;
     }
 }

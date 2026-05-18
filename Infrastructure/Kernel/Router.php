@@ -6,6 +6,7 @@ namespace Infrastructure\Kernel;
 
 use Infrastructure\Http\Middleware\Contracts\MiddlewareInterface;
 use Infrastructure\Http\Middleware\MiddlewarePipeline;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -66,7 +67,7 @@ class Router
             }
         }
 
-        return new Response('Not found.', Response::HTTP_NOT_FOUND);
+        return new JsonResponse(['error' => 'Not found.'], Response::HTTP_NOT_FOUND);
     }
 
     /**

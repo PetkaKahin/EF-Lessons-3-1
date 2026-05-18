@@ -36,9 +36,10 @@ class TaskController
 
         $task = $this->createTask->execute(
             title: $data['title'] ?? '',
-            data: $idempotency,
+            idempotencyData: $idempotency,
             description: $data['description'] ?? null,
             status: $data['status'] ?? null,
+            requestBody: $data,
         );
 
         return new JsonResponse(

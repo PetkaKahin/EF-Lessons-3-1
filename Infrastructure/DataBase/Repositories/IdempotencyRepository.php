@@ -7,7 +7,9 @@ namespace Infrastructure\DataBase\Repositories;
 use Application\Contracts\IdempotencyRepositoryInterface;
 use Application\DTO\Idempotency;
 use Application\DTO\IdempotencyData;
+use Application\Exceptions\IdempotencyKeyAlreadyExistsException;
 use PDO;
+use PDOException;
 use PDOStatement;
 use RuntimeException;
 
@@ -24,11 +26,22 @@ class IdempotencyRepository implements IdempotencyRepositoryInterface
             'INSERT INTO idempotency_keys (id, resource_id, request_hash) VALUES (:id, :resource_id, :request_hash)'
         );
 
-        $statement->execute([
-            'id' => $item->id,
-            'resource_id' => $item->resourceId,
-            'request_hash' => $item->requestHash,
-        ]);
+        try {
+            $statement->execute([
+                'id' => $item->id,
+                'resource_id' => $item->resourceId,
+                'request_hash' => $item->requestHash,
+            ]);
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[0] ?? null) === '23000') {
+                throw new IdempotencyKeyAlreadyExistsException(
+                    'Idempotency key already exists.',
+                    previous: $exception,
+                );
+            }
+
+            throw $exception;
+        }
 
         return $item;
     }

@@ -17,17 +17,11 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Task'
-                  nextCursor:
-                    type: string
-                    nullable: true
-        default:
-          $ref: '#/components/responses/Error'
+                $ref: '#/components/schemas/TaskListResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
     post:
       summary: Создать задачу
@@ -40,27 +34,32 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - title
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                  nullable: true
-                status:
-                  type: string
-                  enum: [new, in_progress, done]
+              $ref: '#/components/schemas/CreateTaskRequest'
       responses:
         '201':
           description: Задача создана
+          headers:
+            Location:
+              description: URL созданной задачи.
+              schema:
+                type: string
+                example: /tasks/018f7050-d1f8-47f1-bf7a-1a2f1a7500f5
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
-        default:
-          $ref: '#/components/responses/Error'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /tasks/{id}:
     get:
@@ -74,8 +73,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
-        default:
-          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
     patch:
       summary: Обновить задачу
@@ -88,16 +91,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                  nullable: true
-                status:
-                  type: string
-                  enum: [new, in_progress, done]
+              $ref: '#/components/schemas/UpdateTaskRequest'
       responses:
         '200':
           description: Задача обновлена
@@ -105,8 +99,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
-        default:
-          $ref: '#/components/responses/Error'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
     delete:
       summary: Удалить задачу
@@ -117,8 +121,16 @@ paths:
       responses:
         '204':
           description: Задача удалена
-        default:
-          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
   securitySchemes:
@@ -137,38 +149,126 @@ components:
     status:
       name: status
       in: query
+      required: false
       schema:
         type: string
         enum: [new, in_progress, done]
     limit:
       name: limit
       in: query
+      required: false
       schema:
         type: integer
+        minimum: 1
+        maximum: 100
         default: 100
     cursor:
       name: cursor
       in: query
+      required: false
       schema:
         type: string
         nullable: true
     idempotencyKey:
       name: Idempotency-Key
       in: header
+      required: false
       schema:
         type: string
+        minLength: 1
 
   responses:
-    Error:
-      description: Ошибка
+    BadRequest:
+      description: Некорректное JSON-тело запроса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Не передан заголовок Authorization
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Некорректный bearer-токен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Idempotency-Key уже использовался с другим телом запроса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Внутренняя ошибка сервера
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
 
   schemas:
+    TaskListResponse:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        nextCursor:
+          type: string
+          nullable: true
+
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [new, in_progress, done]
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [new, in_progress, done]
+
     Task:
       type: object
+      required: [id, title, description, status, createdAt]
       properties:
         id:
           type: string
@@ -187,6 +287,7 @@ components:
 
     Error:
       type: object
+      required: [error]
       properties:
         error:
           type: string
